@@ -1,0 +1,92 @@
+ALTER FUNCTION [dbo].[MultiFilterLookup]
+	(@action nvarchar(1), @UserPref nvarchar(100), @ListingOption nvarchar(100))
+RETURNS BIT
+
+AS 
+/****
+
+@UserPref is the users multi selected preference on a certain filter
+ex: Amenities: "Pool,Deck,Jacuzzi"
+
+@ListingOption is the amenities for each individual listing
+ex:  Amenities: "Jacuzzi,Deck"
+
+DECLARE @action nvarchar(1)='O'
+DECLARE @UserPref nvarchar(100)='AS,LA,GR'
+DECLARE @ListingOption nvarchar(100)='GR,SF,SM,OR'
+
+SELECT dbo.MultiFilterLookup(@action, @UserPref, @ListingOption)
+
+
+****/
+BEGIN
+	DECLARE @User table(Options nvarchar(150))
+	DECLARE @Listing table(Options nvarchar(150))
+	DECLARE @UserCommaLocation int
+	DECLARE @ListingCommaLocation int
+	DECLARE @Result bit
+	SET @UserPref += ','
+
+	WHILE (CHARINDEX(',', @UserPref, 0)>0)
+		BEGIN
+			SET @UserCommaLocation = CHARINDEX(',',@UserPref, 0)
+			INSERT INTO @User(Options)
+			SELECT LTRIM(RTRIM(SUBSTRING(@UserPref, 0, @UserCommaLocation)))
+			SET @UserPref = STUFF(@UserPref, 1,@UserCommaLocation, '')
+
+		END
+
+	SET @ListingOption +=','
+
+	WHILE(CHARINDEX(',',@ListingOption, 0)>0)	
+	BEGIN
+		SET @ListingCommaLocation = CHARINDEX(',',@ListingOption,0)
+		INSERT INTO @Listing(Options)
+		SELECT LTRIM(RTRIM(SUBSTRING(@ListingOption, 0,@ListingCommaLocation)))
+		SET @ListingOption = STUFF(@ListingOption, 1, @ListingCommaLocation,'')
+	END
+
+	IF (@action = 'O')
+	BEGIN
+	
+		SELECT @Result= 
+			CASE WHEN EXISTS(
+			SELECT ut.Options AS UserOption, lt.Options AS ListingOption
+			FROM @User AS ut
+			JOIN @Listing AS lt ON ut.Options = lt.Options)	
+			THEN CAST(1 AS BIT)
+			ELSE CAST(0 AS BIT) 
+		END
+	END
+	IF (@action = 'A')
+	BEGIN	
+		DECLARE @ListingCountAND int = (SELECT COUNT(*) FROM(
+			SELECT ut.Options AS UserOption
+			FROM @User AS ut 
+			INNER JOIN @Listing AS lt ON ut.Options = lt.Options
+		)MatchCount)
+		DECLARE @UserCount int = (SELECT COUNT(*) FROM @User)
+
+		SELECT @Result=
+			CASE WHEN @ListingCountAND = @UserCount
+			THEN CAST (1 AS BIT)
+			ELSE CAST(0 AS BIT)
+		END
+	END
+
+	IF(@Action='N')
+	BEGIN
+		DECLARE @ListingCountNTHR int = (SELECT COUNT(*) FROM(
+			SELECT ut.Options AS UserOption
+			FROM @User AS ut
+			INNER JOIN @Listing AS lt ON ut.Options = lt.Options
+			)MatchCount)
+		SELECT @Result=
+			CASE WHEN @ListingCountNTHR = 0
+			THEN CAST (1 AS BIT) 
+			ELSE CAST (0 AS BIT) 
+		END	
+	END
+RETURN @Result
+
+END
