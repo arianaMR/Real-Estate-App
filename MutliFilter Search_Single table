@@ -1,0 +1,63 @@
+ALTER FUNCTION [dbo].[MultiFilterLookup_SingleTableValue]
+	(@action nvarchar(1), @UserPref nvarchar(100), @ListingOption nvarchar(100))
+RETURNS BIT
+
+AS 
+/****
+
+
+
+DECLARE @action nvarchar(1)='O'
+DECLARE @UserPref nvarchar(100)='AS,aR,GR'
+DECLARE @ListingOption nvarchar(100)='AS'
+
+
+SELECT dbo.MultiFilterLookup_SingleTableValue(@action, @UserPref, @ListingOption)
+
+
+****/
+BEGIN
+	DECLARE @User table(Options nvarchar(150))
+	DECLARE @UserCommaLocation int	
+	DECLARE @Result bit
+	DECLARE @ListingCount int
+	SET @UserPref += ','
+
+	WHILE (CHARINDEX(',', @UserPref, 0)>0)
+		BEGIN
+			SET @UserCommaLocation = CHARINDEX(',',@UserPref, 0)
+			INSERT INTO @User(Options)
+			SELECT LTRIM(RTRIM(SUBSTRING(@UserPref, 0, @UserCommaLocation)))
+			SET @UserPref = STUFF(@UserPref, 1,@UserCommaLocation, '')
+
+		END
+	
+
+	IF(@Action='O')
+	BEGIN
+		SELECT @ListingCount = sum(match) from (
+			SELECT 
+				(CASE WHEN ut.Options = @ListingOption 
+				THEN 1 ELSE 0 END) AS Match
+			FROM @User as ut) m;			
+			SELECT @Result=
+				CASE WHEN @ListingCount >= 1
+				THEN CAST (1 AS BIT) 
+				ELSE CAST (0 AS BIT) 
+			END	
+	END
+	IF(@Action='N')
+	BEGIN
+		SELECT @ListingCount = sum(match) from (
+			SELECT 
+				(CASE WHEN ut.Options = @ListingOption 
+				THEN 1 ELSE 0 END) AS Match
+			FROM @User as ut) m;			
+			SELECT @Result=
+				CASE WHEN @ListingCount = 0
+				THEN CAST (1 AS BIT) 
+				ELSE CAST (0 AS BIT) 
+			END	
+	END
+	RETURN @Result
+END
