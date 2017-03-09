@@ -5,7 +5,10 @@ RETURNS BIT
 AS 
 /****
 
-
+Takes into account and, or, not type searches specified by the @action variable
+'A' = and
+'O' = or
+'N'= not (everything else)
 
 DECLARE @action nvarchar(1)='O'
 DECLARE @UserPref nvarchar(100)='AS,aR,GR'
