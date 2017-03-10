@@ -1,0 +1,39 @@
+      //Gets Listings Details From Rets
+        public List<ResidentialDetails> LibRetsListingsSearch(string queryType, string queryString)
+        {
+            List<ResidentialDetails> listResDetails = null;
+            if (_libretsession == null)
+            {
+                if (!LibretsLogin())
+                {
+                    throw new ApplicationException("login has Failed");
+                }
+            }
+            try
+            {
+                //creates a query that looks like this: query = "(ListAgentAOR=" + queryString + "),(ModificationTimestamp=2017-01-15T01:30:40+)";
+                SearchRequest request = CreateSearchListings(queryType,queryString);
+                //creates a search in mls with the query
+                SearchResultSet results = _libretsession.Search(request);
+
+                Debug.WriteLine("Record count: " + results.GetCount());
+
+                while (results.HasNext())
+                {
+                    ResidentialDetails rowData = new ResidentialDetails();
+                    DataMapperDetails(results, rowData);
+
+                    if (listResDetails == null)
+                    {
+                        listResDetails = new List<ResidentialDetails>();
+                    }
+                    listResDetails.Add(rowData);
+                }
+                //returns listings that match the query sent in
+                return listResDetails;
+            }
+            catch (Exception ex)
+            {
+                throw new ApplicationException(ex.Message, ex);
+            }
+        }
