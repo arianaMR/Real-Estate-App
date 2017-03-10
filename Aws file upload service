@@ -1,0 +1,46 @@
+
+
+     public static FileAddResponse UploadToAmazon(Stream stream, FileUpdateRequest fileUpdate)
+        {
+            FileAddResponse fileResponse = new FileAddResponse();
+
+            var accessKey = ConfigurationManager.AppSettings["AWSAccessKey"];// Get access key from a secure store
+            var secretKey = ConfigurationManager.AppSettings["AWSSecretKey"];// Get secret key from a secure store
+
+            AmazonS3Client client = null;
+
+            using (client = new AmazonS3Client(accessKey, secretKey, Amazon.RegionEndpoint.yourRegion))
+            {
+                try
+                {
+                    //using() automatically calls dispose                   
+                    PutObjectRequest request = new PutObjectRequest()
+                    {
+                        BucketName = bucketName,
+                        Key = fileUpdate.keyName,
+                        InputStream = stream
+                    };
+                    client.PutObject(request);
+                    fileResponse.keyName = request.Key;
+
+                    //if error in putobject(above) then goes straight to catch
+                    fileResponse.message = "file uploaded successfully!";
+                }
+                catch (AmazonS3Exception amazonS3Exception)
+                {
+                    if (amazonS3Exception.ErrorCode != null &&
+                      (amazonS3Exception.ErrorCode.Equals("InvalidAccessKeyId")
+                      ||
+                      amazonS3Exception.ErrorCode.Equals("InvalidSecurity")))
+                    {
+                        fileResponse.message = "Check the provided AWS Credentials. \n For service sign up go to http://aws.amazon.com/s3";
+                    }
+                    else
+                    {
+                        fileResponse.message = String.Format("Error occurred. Message:'{0}' when writing an object", amazonS3Exception.Message);
+                    }
+                }
+            }
+            return fileResponse;
+        }
+
